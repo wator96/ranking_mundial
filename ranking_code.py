@@ -278,77 +278,56 @@ polaczonyWykres.on('plotly_sliderchange', function(data) {
 # DANE DO TWOJEGO GITHUBA (Uzupełnij przed uruchomieniem)
 # ==============================================================================
 import os
-
-# Zamiast wpisywać token tekstowo, pobieramy go bezpiecznie z systemu:
-GITHUB_TOKEN = os.environ.get("SUPER_SECRET_TOKEN") 
-GITHUB_USER = "Wator96"
-REPO_NAME = "ranking_mundial"  
-FILENAME = "index.html"
-
-# ==============================================================================
-# DANE DO TWOJEGO GITHUBA (Sprawdź wielkość liter!)
-# ==============================================================================
-# GITHUB_TOKEN = "TUTAJ_WKLEJ_KOD_TOKENU_Z_KROKU_2"
-# GITHUB_USER = "TWÓJ_NICK_Z_GITHUBAS"
-# REPO_NAME = "ranking"
-# FILENAME = "index.html"
-
-# ==============================================================================
-# AUTOMATYCZNE WYSYŁANIE Z DIAGNOSTYKĄ
-# ==============================================================================
 import requests
 import base64
 
+# Pobieramy automatyczny token z systemu (wyczyszczone z ukrytych znaków)
+GITHUB_TOKEN = os.environ.get("SUPER_SECRET_TOKEN")
+GITHUB_USER = "Wator96"
+REPO_NAME = "ranking_mundial"
+FILENAME = "index.html"
+
 pelny_kod_strony = wykres_html + custom_js_script
 
+# Zmieniamy "token" na nowocześniejszy format "Bearer", który akceptuje tokeny automatyczne
 headers = {
-    "Authorization": f"token {GITHUB_TOKEN}",
+    "Authorization": f"Bearer {GITHUB_TOKEN}",
     "Accept": "application/vnd.github.v3+json"
 }
 
-# --- TEST 1: Sprawdzenie połączenia z Twoim profilem ---
-test_user_url = "https://api.github.com/user"
-user_res = requests.get(test_user_url, headers=headers)
+# --- TEST 1: Sprawdzenie połączenia z repozytorium ---
+repo_url = f"https://api.github.com/repos/{GITHUB_USER}/{REPO_NAME}"
+repo_res = requests.get(repo_url, headers=headers)
 
-if user_res.status_code != 200:
-    print("❌ BŁĄD TOKENU: Twój token jest niepoprawny lub wygasł. GitHub go odrzuca.")
-    print("Wygeneruj nowy Token (classic) i upewnij się, że zaznaczyłeś ptaszek przy 'repo'.")
+if repo_res.status_code == 401 or repo_res.status_code == 403:
+    print("❌ BŁĄD AUTORYZACJI: Serwer GitHuba odrzucił token przekazany do skryptu.")
+    print("Upewnij się, że plik workflow przekazuje poprawną zmienną środowiskową.")
+elif repo_res.status_code == 404:
+    print(f"❌ BŁĄD REPOZYTORIUM: GitHub twierdzi, że repozytorium '{REPO_NAME}' nie istnieje na koncie '{GITHUB_USER}'.")
 else:
-    zalogowany_jako = user_res.json().get('login')
-    print(f"✅ Token działa! Zalogowano pomyślnie jako: {zalogowany_jako}")
+    print(f"✅ Połączenie z repozytorium '{REPO_NAME}' działa poprawnie!")
 
-    # --- TEST 2: Sprawdzenie widoczności repozytorium ---
-    repo_url = f"https://api.github.com/repos/{GITHUB_USER}/{REPO_NAME}"
-    repo_res = requests.get(repo_url, headers=headers)
+    # --- KROK WŁAŚCIWY: Wysyłanie pliku ---
+    contents_url = f"{repo_url}/contents/{FILENAME}"
 
-    if repo_res.status_code == 404:
-        print(f"❌ BŁĄD REPOZYTORIUM: GitHub twierdzi, że repozytorium '{REPO_NAME}' nie istnieje na koncie '{GITHUB_USER}'.")
-        print(" -> Sprawdź, czy nie ma literówki w nazwie repozytorium lub użytkownika (małe/duże litery!).")
-        print(" -> Jeśli repozytorium jest prywatne, Twój token NIE MA uprawnień 'repo' (musisz wygenerować nowy token z tym ptaszkiem).")
+    # Sprawdzamy czy plik istnieje
+    file_res = requests.get(contents_url, headers=headers)
+    sha = file_res.json().get("sha") if file_res.status_code == 200 else None
+
+    content_encoded = base64.b64encode(pelny_kod_strony.encode("utf-8")).decode("utf-8")
+
+    data = {
+        "message": "Aktualizacja rankingu (automatyczna z GitHub Actions)",
+        "content": content_encoded
+    }
+    if sha:
+        data["sha"] = sha
+
+    put_response = requests.put(contents_url, headers=headers, json=data)
+
+    if put_response.status_code in [200, 201]:
+        print("\n🚀 SUKCES! Plik został wysłany.")
+        print(f"Strona zaktualizuje się za chwilę pod adresem: https://{GITHUB_USER}.github.io/{REPO_NAME}/")
     else:
-        print(f"✅ Repozytorium '{REPO_NAME}' zostało znalezione!")
-
-        # --- KROK WŁAŚCIWY: Wysyłanie pliku ---
-        contents_url = f"{repo_url}/contents/{FILENAME}"
-
-        # Sprawdzamy czy plik istnieje
-        file_res = requests.get(contents_url, headers=headers)
-        sha = file_res.json().get("sha") if file_res.status_code == 200 else None
-
-        content_encoded = base64.b64encode(pelny_kod_strony.encode("utf-8")).decode("utf-8")
-
-        data = {
-            "message": "Aktualizacja rankingu (automatyczna z Colaba)",
-            "content": content_encoded
-        }
-        if sha:
-            data["sha"] = sha
-
-        put_response = requests.put(contents_url, headers=headers, json=data)
-
-        if put_response.status_code in [200, 201]:
-            print("\n🚀 SUKCES! Plik został wysłany.")
-            print(f"Strona zaktualizuje się za chwilę pod adresem: https://{GITHUB_USER}.github.io/{REPO_NAME}/")
-        else:
-            print("\n❌ Błąd podczas zapisu pliku:")
-            print(put_response.json())
+        print("\n❌ Błąd podczas zapisu pliku:")
+        print(put_response.json())

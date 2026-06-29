@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-from IPython.core.display import display, HTML
 
 # ==========================================
 # 1. KONFIGURACJA LINKU DO PLIKU EXCEL (.XLSX)

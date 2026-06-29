@@ -278,8 +278,8 @@ polaczonyWykres.on('plotly_sliderchange', function(data) {
 # DANE DO TWOJEGO GITHUBA (Uzupełnij przed uruchomieniem)
 # ==============================================================================
 import os
-import requests
-import base64
+# import requests
+# import base64
 
 # Pobieramy automatyczny token z systemu (wyczyszczone z ukrytych znaków)
 GITHUB_TOKEN = os.environ.get("SUPER_SECRET_TOKEN")

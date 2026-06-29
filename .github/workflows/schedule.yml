@@ -5,22 +5,45 @@ on:
     - cron: '0 * * * *'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   run-updater:
     runs-on: ubuntu-latest
+
     steps:
     - name: Pobierz pliki z repozytorium
       uses: actions/checkout@v4
+
     - name: Konfiguracja Pythona
       uses: actions/setup-python@v5
       with:
         python-version: '3.10'
+
     - name: Instalacja potrzebnych bibliotek
       run: |
         python -m pip install --upgrade pip
-        pip install pandas numpy plotly openpyxl requests
+        pip install pandas numpy plotly openpyxl
 
-    - name: Uruchomienie skryptu aktualizujacego
-      env:
-        SUPER_SECRET_TOKEN: ${{ secrets.MY_GITHUB_TOKEN }}
+    - name: Uruchomienie skryptu Pythona (Generowanie HTML)
+      # Zauważ, że usunęliśmy sekcję "env:" z tokenami - nie są już potrzebne!
       run: python ranking_code.py
+
+    - name: Publikacja pliku index.html do repozytorium
+      run: |
+        # Konfigurujemy bota GitHuba
+        git config --global user.name 'github-actions[bot]'
+        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+        
+        # Dodajemy nowo wygenerowany plik index.html
+        git add index.html
+        
+        # Sprawdzamy czy zaszły jakieś zmiany w danych (żeby nie robić pustych commitów)
+        if git diff-index --quiet HEAD --; then
+          echo "Brak nowych danych w Excelu - plik HTML jest identyczny. Pomijam aktualizację."
+        else
+          git commit -m "Automatyczna aktualizacja rankingu z danych Excela"
+          git push
+          echo "🚀 SUKCES! Zmiany zostały wypchnięte do repozytorium!"
+        fi

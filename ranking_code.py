@@ -2,20 +2,12 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 
-# ==========================================
-# 1. KONFIGURACJA LINKU DO PLIKU EXCEL (.XLSX)
-# ==========================================
 
-# KROK A: Wklej tutaj oryginalny link do udostępniania Twojego pliku Excel z Dysku Google
-# Link powinien wyglądać mniej więcej tak: https://drive.google.com/file/d/XYZ_ID_PLIKU_XYZ/view?usp=sharing
 link_do_udostepnienia = "https://docs.google.com/spreadsheets/d/17qgzEkRRJBSlOcsvYyOs5AFYQ2Wyjfsi/edit?usp=sharing&ouid=112239134874349160222&rtpof=true&sd=true"
 
-# KROK B: Automatyczna konwersja linku na format bezpośredniego pobierania binarnego dla Excela
 file_id = link_do_udostepnienia.split('/d/')[1].split('/')[0]
 direct_download_url = f"https://docs.google.com/uc?export=download&id={file_id}"
 
-# KROK C: Pobranie i wczytanie pliku Excel bezpośrednio do pamięci
-# Jeśli dane masz w konkretnej zakładce, dopisz parametr: sheet_name="NazwaTwojejZakladki"
 df_raw = pd.read_excel(direct_download_url, sheet_name='Faza grupowa')
 df_raw_2 = pd.read_excel(direct_download_url, sheet_name='Faza playoff')
 
@@ -49,26 +41,41 @@ for col in reversed(wynik_cols):
 
 if ostatnia_wazna_col:
     idx = df_4.columns.get_loc(ostatnia_wazna_col)
-    df_4 = df_4.iloc[:, :idx + 1]  # +1, żeby zachować tę ważną kolumnę
+    df_4 = df_4.iloc[:, :idx + 1]
 else:
 
     df_4 = df_4[['Obstawiacz']]
 
-df_raw = df_1.set_index('Obstawiacz').join(df_2.set_index('Obstawiacz'), how='outer').join(df_3.set_index('Obstawiacz'), how='outer').join(df_4.set_index('Obstawiacz'), how='outer').reset_index()
+nowa_lista_5 = [f'1/8_{element}' for element in list(df_raw_2.iloc[2, 2:26])]
+columny_5 = ['Obstawiacz']+nowa_lista_5
+df_5 = df_raw_2.iloc[69:81, 1:26]
+df_5.columns = columny_5
+
+wynik_cols = [col for col in df_5.columns if col.startswith('1/8')]
+
+ostatnia_wazna_col = None
+for col in reversed(wynik_cols):
+    if (df_5[col] != 0).any():
+        ostatnia_wazna_col = col
+        break
+
+if ostatnia_wazna_col:
+    idx = df_5.columns.get_loc(ostatnia_wazna_col)
+    df_5 = df_5.iloc[:, :idx + 1]  # +1, żeby zachować tę ważną kolumnę
+else:
+
+    df_5 = df_5[['Obstawiacz']]
+
+df_raw = df_1.set_index('Obstawiacz').join(df_2.set_index('Obstawiacz'), how='outer').join(df_3.set_index('Obstawiacz'), how='outer').join(df_4.set_index('Obstawiacz'), how='outer').join(df_5.set_index('Obstawiacz'), how='outer').reset_index()
 df_raw.fillna(0, inplace=True)
 
-# ==========================================
-# 2. PRZELICZANIE SUMY SKUMULOWANEJ
-# ==========================================
 kolumny_zdarzen = [col for col in df_raw.columns if col != 'Obstawiacz']
 
 df_cumulative = pd.DataFrame()
 df_cumulative['Obstawiacz'] = df_raw['Obstawiacz']
 df_cumulative[kolumny_zdarzen] = df_raw[kolumny_zdarzen].cumsum(axis=1)
 
-# ==========================================
-# 3. GENEROWANIE WYKRESU I KROKÓW SUWAKA
-# ==========================================
+
 fig = go.Figure()
 
 gracze = df_cumulative["Obstawiacz"].unique()
@@ -87,7 +94,6 @@ avatars_dict = {
     "Wojtas":"https://i.postimg.cc/bvX1PMBD/wb-ryjec.png"
 }
 
-# Tworzymy główne linie wykresu (pełna historia jako punkt wyjścia)
 lista_obrazkow = []
 for idx, gracz in enumerate(gracze):
     row_cumulative = df_cumulative[df_cumulative["Obstawiacz"] == gracz].iloc[0]
@@ -121,10 +127,9 @@ for idx, gracz in enumerate(gracze):
             mode="lines+markers",
             name=gracz,
             line=dict(color=kolor_gracza, width=3),
-            hovertemplate=hover_tekst  # <-- Podmieniamy na nowy, czysty tekst
+            hovertemplate=hover_tekst
         ))
 
-    # Początkowa pozycja awatara (na samym końcu, dla ostatniego zdarzenia)
     lista_obrazkow.append(dict(
         source=awatar_url, xref="x", yref="y",
         x=x_data[-1], y=y_data[-1],
@@ -255,44 +260,15 @@ polaczonyWykres.on('plotly_sliderchange', function(data) {
 """
 
 
-# from google.colab import drive
-# import os
-
-# # Montujemy Dysk Google w środowisku Colab
-# drive.mount('/content/drive')
-
-# pelny_kod_strony = wykres_html + custom_js_script
-
-
-# # 2. Definiujemy ścieżkę zapisu bezpośrednio na Twoim Dysku Google
-# sciezka_na_dysku = '/content/drive/MyDrive/ranking_mundial26.html'
-
-# # 3. Zapisujemy/nadpisujemy plik (zawsze pod tą samą nazwą)
-# with open(sciezka_na_dysku, "w", encoding="utf-8") as f:
-#     f.write(pelny_kod_strony)
-
-# print("Sukces! Wykres został zaktualizowany bezpośrednio na Twoim Dysku Google.")
-
-
-# ==============================================================================
-# DANE DO TWOJEGO GITHUBA (Uzupełnij przed uruchomieniem)
-# ==============================================================================
 import os
-# import requests
-# import base64
 
-# Pobieramy automatyczny token z systemu (wyczyszczone z ukrytych znaków)
 GITHUB_TOKEN = os.environ.get("SUPER_SECRET_TOKEN")
 GITHUB_USER = "Wator96"
 REPO_NAME = "ranking_mundial"
 FILENAME = "index.html"
 
-# ==============================================================================
-# ZAPISYWANIE PLIKU HTML (Wersja zoptymalizowana pod GitHub Actions)
-# ==============================================================================
 pelny_kod_strony = wykres_html + custom_js_script
 
-# Po prostu zapisujemy plik na dysku w maszynie bota
 FILENAME = "index.html"
 with open(FILENAME, "w", encoding="utf-8") as f:
     f.write(pelny_kod_strony)

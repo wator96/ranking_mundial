@@ -10,6 +10,7 @@ direct_download_url = f"https://docs.google.com/uc?export=download&id={file_id}"
 
 df_raw = pd.read_excel(direct_download_url, sheet_name='Faza grupowa')
 df_raw_2 = pd.read_excel(direct_download_url, sheet_name='Faza playoff')
+df_raw_3 = pd.read_excel(direct_download_url, sheet_name='Turniej')
 
 nowa_lista = [f'Kolejka_1_{element}' for element in list(df_raw.iloc[2, 2:50])]
 columny = ['Obstawiacz']+nowa_lista
@@ -91,6 +92,12 @@ else:
 df_raw = df_1.set_index('Obstawiacz').join(df_2.set_index('Obstawiacz'), how='outer').join(df_3.set_index('Obstawiacz'), how='outer').join(df_4.set_index('Obstawiacz'), how='outer').join(df_5.set_index('Obstawiacz'), how='outer').join(df_6.set_index('Obstawiacz'), how='outer').reset_index()
 df_raw.fillna(0, inplace=True)
 
+df_raw_3_temp = df_raw_3.iloc[5:17,[0, 8]]
+df_raw_3_temp.columns=['Obstawiacz', 'Predykcja_turniej']
+
+
+df_raw = df_raw.set_index('Obstawiacz').join(df_raw_3_temp.set_index('Obstawiacz'), how='outer').reset_index()
+df_raw.fillna(0, inplace=True)
 kolumny_zdarzen = [col for col in df_raw.columns if col != 'Obstawiacz']
 
 df_cumulative = pd.DataFrame()

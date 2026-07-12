@@ -303,4 +303,4 @@ polaczonyWykres.on('plotly_sliderchange', function(data) {
 
 GITHUB_TOKEN = os.environ.get("SUPER_SECRET_TOKEN")
 GITHUB_USER = "Wator96"
-REPO_NAME = "ranking_mundial
+REPO_NAME = "ranking_mundial"

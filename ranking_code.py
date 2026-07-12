@@ -41,10 +41,11 @@ for col in reversed(wynik_cols):
 
 if ostatnia_wazna_col:
     idx = df_4.columns.get_loc(ostatnia_wazna_col)
-    df_4 = df_4.iloc[:, :idx + 1]
+    df_4 = df_4.iloc[:, :idx + 1]  # +1, żeby zachować tę ważną kolumnę
 else:
 
     df_4 = df_4[['Obstawiacz']]
+
 
 nowa_lista_5 = [f'1/8_{element}' for element in list(df_raw_2.iloc[2, 2:26])]
 columny_5 = ['Obstawiacz']+nowa_lista_5
@@ -66,7 +67,28 @@ else:
 
     df_5 = df_5[['Obstawiacz']]
 
-df_raw = df_1.set_index('Obstawiacz').join(df_2.set_index('Obstawiacz'), how='outer').join(df_3.set_index('Obstawiacz'), how='outer').join(df_4.set_index('Obstawiacz'), how='outer').join(df_5.set_index('Obstawiacz'), how='outer').reset_index()
+
+nowa_lista_6 = [f'1/4_{element}' for element in list(df_raw_2.iloc[2, 2:14])]
+columny_6 = ['Obstawiacz']+nowa_lista_6
+df_6 = df_raw_2.iloc[111:123, 1:14]
+df_6.columns = columny_6
+
+wynik_cols = [col for col in df_6.columns if col.startswith('1/4')]
+
+ostatnia_wazna_col = None
+for col in reversed(wynik_cols):
+    if (df_6[col] != 0).any():
+        ostatnia_wazna_col = col
+        break
+
+if ostatnia_wazna_col:
+    idx = df_6.columns.get_loc(ostatnia_wazna_col)
+    df_6 = df_6.iloc[:, :idx + 1]  # +1, żeby zachować tę ważną kolumnę
+else:
+
+    df_6 = df_6[['Obstawiacz']]
+
+df_raw = df_1.set_index('Obstawiacz').join(df_2.set_index('Obstawiacz'), how='outer').join(df_3.set_index('Obstawiacz'), how='outer').join(df_4.set_index('Obstawiacz'), how='outer').join(df_5.set_index('Obstawiacz'), how='outer').join(df_6.set_index('Obstawiacz'), how='outer').reset_index()
 df_raw.fillna(0, inplace=True)
 
 kolumny_zdarzen = [col for col in df_raw.columns if col != 'Obstawiacz']

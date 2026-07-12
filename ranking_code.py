@@ -1,7 +1,7 @@
+import os
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-
 
 link_do_udostepnienia = "https://docs.google.com/spreadsheets/d/17qgzEkRRJBSlOcsvYyOs5AFYQ2Wyjfsi/edit?usp=sharing&ouid=112239134874349160222&rtpof=true&sd=true"
 
@@ -42,11 +42,9 @@ for col in reversed(wynik_cols):
 
 if ostatnia_wazna_col:
     idx = df_4.columns.get_loc(ostatnia_wazna_col)
-    df_4 = df_4.iloc[:, :idx + 1]  # +1, żeby zachować tę ważną kolumnę
+    df_4 = df_4.iloc[:, :idx + 1]  
 else:
-
     df_4 = df_4[['Obstawiacz']]
-
 
 nowa_lista_5 = [f'1/8_{element}' for element in list(df_raw_2.iloc[2, 2:26])]
 columny_5 = ['Obstawiacz']+nowa_lista_5
@@ -63,11 +61,9 @@ for col in reversed(wynik_cols):
 
 if ostatnia_wazna_col:
     idx = df_5.columns.get_loc(ostatnia_wazna_col)
-    df_5 = df_5.iloc[:, :idx + 1]  # +1, żeby zachować tę ważną kolumnę
+    df_5 = df_5.iloc[:, :idx + 1]  
 else:
-
     df_5 = df_5[['Obstawiacz']]
-
 
 nowa_lista_6 = [f'1/4_{element}' for element in list(df_raw_2.iloc[2, 2:14])]
 columny_6 = ['Obstawiacz']+nowa_lista_6
@@ -84,9 +80,8 @@ for col in reversed(wynik_cols):
 
 if ostatnia_wazna_col:
     idx = df_6.columns.get_loc(ostatnia_wazna_col)
-    df_6 = df_6.iloc[:, :idx + 1]  # +1, żeby zachować tę ważną kolumnę
+    df_6 = df_6.iloc[:, :idx + 1]  
 else:
-
     df_6 = df_6[['Obstawiacz']]
 
 df_raw = df_1.set_index('Obstawiacz').join(df_2.set_index('Obstawiacz'), how='outer').join(df_3.set_index('Obstawiacz'), how='outer').join(df_4.set_index('Obstawiacz'), how='outer').join(df_5.set_index('Obstawiacz'), how='outer').join(df_6.set_index('Obstawiacz'), how='outer').reset_index()
@@ -95,7 +90,6 @@ df_raw.fillna(0, inplace=True)
 df_raw_3_temp = df_raw_3.iloc[5:17,[0, 8]]
 df_raw_3_temp.columns=['Obstawiacz', 'Predykcja_turniej']
 
-
 df_raw = df_raw.set_index('Obstawiacz').join(df_raw_3_temp.set_index('Obstawiacz'), how='outer').reset_index()
 df_raw.fillna(0, inplace=True)
 kolumny_zdarzen = [col for col in df_raw.columns if col != 'Obstawiacz']
@@ -103,7 +97,6 @@ kolumny_zdarzen = [col for col in df_raw.columns if col != 'Obstawiacz']
 df_cumulative = pd.DataFrame()
 df_cumulative['Obstawiacz'] = df_raw['Obstawiacz']
 df_cumulative[kolumny_zdarzen] = df_raw[kolumny_zdarzen].cumsum(axis=1)
-
 
 fig = go.Figure()
 
@@ -124,13 +117,18 @@ avatars_dict = {
 }
 
 lista_obrazkow = []
+
+# Rysujemy dwie serie na gracza: główną (ciągłą) oraz odcinek predykcji (kropkowany)
 for idx, gracz in enumerate(gracze):
     row_cumulative = df_cumulative[df_cumulative["Obstawiacz"] == gracz].iloc[0]
-    x_data = kolumny_zdarzen
-    y_data = row_cumulative[kolumny_zdarzen].values
-
     kolor_gracza = kolory[idx % len(kolory)]
     pierwsza_litera = str(gracz)[0].upper()
+
+    x_main = kolumny_zdarzen[:-1]
+    y_main = row_cumulative[x_main].values
+    
+    x_pred = kolumny_zdarzen[-2:]
+    y_pred = row_cumulative[x_pred].values
 
     if gracz in avatars_dict:
         awatar_url = avatars_dict[gracz]
@@ -150,18 +148,30 @@ for idx, gracz in enumerate(gracze):
         f"Suma punktów: %{{y}} pkt<extra></extra>"
     )
 
+    # 1. Linia główna (ciągła)
     fig.add_trace(go.Scatter(
-            x=x_data,
-            y=y_data,
-            mode="lines+markers",
-            name=gracz,
-            line=dict(color=kolor_gracza, width=3),
-            hovertemplate=hover_tekst
-        ))
+        x=x_main,
+        y=y_main,
+        mode="lines+markers",
+        name=gracz,
+        line=dict(color=kolor_gracza, width=3, dash="solid"),
+        hovertemplate=hover_tekst
+    ))
+
+    # 2. Ostatnie zdarzenie (kropkowane)
+    fig.add_trace(go.Scatter(
+        x=x_pred,
+        y=y_pred,
+        mode="lines+markers",
+        name=gracz,
+        line=dict(color=kolor_gracza, width=3, dash="dot"),
+        hovertemplate=hover_tekst,
+        showlegend=False
+    ))
 
     lista_obrazkow.append(dict(
         source=awatar_url, xref="x", yref="y",
-        x=x_data[-1], y=y_data[-1],
+        x=kolumny_zdarzen[-1], y=row_cumulative[kolumny_zdarzen[-1]],
         sizex=0.9, sizey=16,
         xanchor="left", yanchor="middle"
     ))
@@ -172,41 +182,49 @@ fig.update_layout(images=lista_obrazkow)
 # 4. BUDOWANIE DYNAMICZNYCH KROKÓW DLA SUWAKA
 # ==========================================
 steps = []
-# Przechodzimy przez każde zdarzenie po kolei (każdy krok suwaka)
+
 for i, punkt_stopu in enumerate(kolumny_zdarzen):
     widoczne_kolumny = kolumny_zdarzen[:i+1]
 
-    # Przygotowujemy zmiany wartości linii (obcinamy dane do aktualnego kroku suwaka)
-    zmiana_serii = []
+    zmiana_x = []
+    zmiana_y = []
     obrazy_kroku = []
 
     for idx, gracz in enumerate(gracze):
         row_cumulative = df_cumulative[df_cumulative["Obstawiacz"] == gracz].iloc[0]
-        y_aktualne = row_cumulative[widoczne_kolumny].values
+        
+        if punkt_stopu == "Predykcja_turniej":
+            x_m = widoczne_kolumny[:-1]
+        else:
+            x_m = widoczne_kolumny
+        y_m = row_cumulative[x_m].values
+        
+        zmiana_x.append(x_m)
+        zmiana_y.append(y_m)
 
-        # Aktualizacja punktów linii
-        zmiana_serii.append(dict(
-            x=widoczne_kolumny,
-            y=y_aktualne
-        ))
+        if punkt_stopu == "Predykcja_turniej":
+            x_p = widoczne_kolumny[-2:]
+            y_p = row_cumulative[x_p].values
+        else:
+            x_p = []
+            y_p = []
+            
+        zmiana_x.append(x_p)
+        zmiana_y.append(y_p)
 
-        # Przesunięcie pozycji awatara na koniec aktualnie wybranej osi czasu
         obrazy_kroku.append(dict(
             x=widoczne_kolumny[-1],
-            y=y_aktualne[-1]
+            y=row_cumulative[widoczne_kolumny[-1]]
         ))
 
-    # Tworzymy definicję zachowania dla danego kroku suwaka
     krok = dict(
         method="update",
         label=str(punkt_stopu),
         args=[
-            # Słownik 1: co zmienić w seriach danych (nasze ucięte linie x i y)
             {
-                "x": [s['x'] for s in zmiana_serii],
-                "y": [s['y'] for s in zmiana_serii]
+                "x": zmiana_x,
+                "y": zmiana_y
             },
-            # Słownik 2: co zmienić w wyglądzie layoutu (nowe pozycje awatarów)
             {
                 "images": [
                     {**lista_obrazkow[idx], "x": img['x'], "y": img['y']}
@@ -217,11 +235,10 @@ for i, punkt_stopu in enumerate(kolumny_zdarzen):
     )
     steps.append(krok)
 
-# Dodajemy suwak do konfiguracji wykresu
 sliders = [dict(
-    active=len(kolumny_zdarzen) - 1, # domyślnie suwak ustawiony na ostatnim meczu
+    active=len(kolumny_zdarzen) - 1, 
     currentvalue={"prefix": "Przeglądasz historię do: ", "font": {"size": 14, "color": "#666"}},
-    pad={"t": 60}, # odstęp od wykresu
+    pad={"t": 60}, 
     steps=steps
 )]
 
@@ -234,46 +251,42 @@ fig.update_layout(
     yaxis=dict(title="Suma punktów", gridcolor="#EBF0F5", showline=True, linecolor="#999"),
     plot_bgcolor="white",
     hovermode="closest",
-    margin=dict(r=120, b=100), # powiększony dolny margines na suwak
+    margin=dict(r=120, b=100), 
     legend=dict(title="<b>Typerzy:</b><br>(kliknij aby schować)", font=dict(size=11)),
     sliders=sliders
 )
 
 wykres_html = fig.to_html(include_plotlyjs='cdn', full_html=False)
 
-# Rozbudowany skrypt JS, który pilnuje ukrywania awatarów z legendy,
-# nawet jeśli w międzyczasie szalejesz suwakiem.
 custom_js_script = """
 <script>
 var polaczonyWykres = document.getElementsByClassName('plotly-graph-div')[0];
-
-// Tablica pamiętająca, których graczy ręcznie wyłączyliśmy w legendzie
 var stanUkrytych = {};
 
 polaczonyWykres.on('plotly_legendclick', function(data) {
-    var indeksGracza = data.curveNumber;
+    var indeksGracza = Math.floor(data.curveNumber / 2);
     var aktualnyLayout = polaczonyWykres.layout;
 
     if (aktualnyLayout.images && aktualnyLayout.images[indeksGracza]) {
         var obecnaWidocznosc = aktualnyLayout.images[indeksGracza].opacity;
         var nowaOpacity = (obecnaWidocznosc === 0) ? 1 : 0;
 
-        // Zapisujemy stan, żeby suwak wiedział, że ten gracz ma być niewidoczny
         stanUkrytych[indeksGracza] = nowaOpacity;
 
         var update = {};
         update['images[' + indeksGracza + '].opacity'] = nowaOpacity;
+        
+        var seriaKropkowana = (indeksGracza * 2) + 1;
+        Plotly.restyle(polaczonyWykres, {visible: nowaOpacity === 1 ? true : 'legendonly'}, [seriaKropkowana]);
         Plotly.relayout(polaczonyWykres, update);
     }
     return true;
 });
 
-// Nasłuchujemy ruchów suwaka, żeby po przesunięciu czasu natychmiast nałożyć filtry z legendy
 polaczonyWykres.on('plotly_sliderchange', function(data) {
     var aktualnyLayout = polaczonyWykres.layout;
     var update = {};
 
-    // Iterujemy po obrazkach i aplikujemy z powrotem ukrycie, jeśli gracz jest wygaszony w legendzie
     if (aktualnyLayout.images) {
         for (var idx in stanUkrytych) {
             if (stanUkrytych[idx] === 0) {
@@ -288,18 +301,6 @@ polaczonyWykres.on('plotly_sliderchange', function(data) {
 </script>
 """
 
-
-import os
-
 GITHUB_TOKEN = os.environ.get("SUPER_SECRET_TOKEN")
 GITHUB_USER = "Wator96"
-REPO_NAME = "ranking_mundial"
-FILENAME = "index.html"
-
-pelny_kod_strony = wykres_html + custom_js_script
-
-FILENAME = "index.html"
-with open(FILENAME, "w", encoding="utf-8") as f:
-    f.write(pelny_kod_strony)
-
-print(f"✅ SUKCES! Plik {FILENAME} został wygenerowany i zapisany lokalnie.")
+REPO_NAME = "ranking_mundial
